@@ -16,7 +16,7 @@ Create `.env.local` in the project root:
 VITE_RAPIDAPI_KEY=your_rapidapi_key
 VITE_RAPIDAPI_HOST=aerodatabox.p.rapidapi.com
 VITE_AERODATABOX_AIRPORT_ICAO=KJFK
-VITE_AERODATABOX_DATE=2026-04-05
+VITE_AERODATABOX_DATE=YYYY-MM-DD
 VITE_AERODATABOX_WINDOW_START_HOUR=0
 ```
 
@@ -44,6 +44,50 @@ npm run dev
 npm run build
 npm run preview
 ```
+
+## What To Do Now (Codespaces Only)
+
+1. Keep all work inside Codespaces terminal/editor. No local setup is required.
+2. Put your real key in `.env.local` and never paste keys into docs, screenshots, or chat.
+3. Start the app:
+
+```bash
+npm run dev
+```
+
+4. Verify API connectivity with one direct request (uses the same env vars as the app):
+
+```bash
+set -a && source .env.local && set +a
+DATE="${VITE_AERODATABOX_DATE:-$(date -u +%F)}"
+START="${VITE_AERODATABOX_WINDOW_START_HOUR:-0}"
+END=$(( START == 12 ? 23 : START + 11 ))
+printf -v S "%02d" "$START"
+printf -v E "%02d" "$END"
+curl -sS -o /tmp/aerodatabox.json -w "HTTP %{http_code}\n" \
+	"https://${VITE_RAPIDAPI_HOST}/flights/airports/icao/${VITE_AERODATABOX_AIRPORT_ICAO}/${DATE}T${S}:00/${DATE}T${E}:59" \
+	-H "X-RapidAPI-Key: ${VITE_RAPIDAPI_KEY}" \
+	-H "X-RapidAPI-Host: ${VITE_RAPIDAPI_HOST}"
+```
+
+5. In the app, click `Refresh Board` and confirm flights appear.
+
+## AeroDataBox API Map For This Project
+
+Use now:
+- `Flight`: main source for dashboard flights list and stats.
+- `Airport`: optional validation/metadata for airport lookup.
+- `Healthcheck&Status`: quick diagnostics when API behavior is unclear.
+
+Use later (optional):
+- `Flight Alert`: webhook/realtime notifications.
+- `Aircraft`: deeper aircraft analytics.
+- `Industry`, `Statistical`, `Miscellaneous`: advanced reporting extensions.
+
+Webhook note:
+- For subscription body `url`, use your own public webhook receiver URL.
+- Do not use placeholder hosts (like `your-url`) and do not use AeroDataBox endpoint URLs as receiver URLs.
+- Keep public examples sanitized: use placeholders for secrets and load real values from local env vars.
 
 ## Troubleshooting
 
