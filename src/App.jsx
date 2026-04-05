@@ -4,32 +4,27 @@ import ControlPanel from './components/ControlPanel';
 import StatCards from './components/StatCards';
 import FlightGrid from './components/FlightGrid';
 
-const RAPIDAPI_KEY = (import.meta.env.VITE_RAPIDAPI_KEY || '').trim();
-const RAPIDAPI_HOST = import.meta.env.VITE_RAPIDAPI_HOST || 'aerodatabox.p.rapidapi.com';
-const AIRPORT_ICAO = (import.meta.env.VITE_AERODATABOX_AIRPORT_ICAO || 'KJFK').toUpperCase();
-const DATE_OVERRIDE = (import.meta.env.VITE_AERODATABOX_DATE || '').trim();
-const WINDOW_START_HOUR = Number(import.meta.env.VITE_AERODATABOX_WINDOW_START_HOUR ?? 0);
-const HAS_RAPIDAPI_KEY = RAPIDAPI_KEY.length > 0;
+const AVIATIONSTACK_KEY = (import.meta.env.VITE_AVIATIONSTACK_KEY || '').trim();
+const AVIATIONSTACK_BASE_URL = (
+  import.meta.env.VITE_AVIATIONSTACK_BASE_URL || 'https://api.aviationstack.com/v1'
+).replace(/\/+$/, '');
+const DEPARTURE_IATA = (import.meta.env.VITE_AVIATIONSTACK_DEPARTURE_IATA || 'JFK').toUpperCase();
+const FLIGHT_DATE_OVERRIDE = (import.meta.env.VITE_AVIATIONSTACK_FLIGHT_DATE || '').trim();
+const RESULT_LIMIT = Number(import.meta.env.VITE_AVIATIONSTACK_LIMIT ?? 100);
+const HAS_AVIATIONSTACK_KEY = AVIATIONSTACK_KEY.length > 0;
 
-function getQueryRange() {
-  const datePart = /^\d{4}-\d{2}-\d{2}$/.test(DATE_OVERRIDE)
-    ? DATE_OVERRIDE
-    : new Date().toISOString().slice(0, 10);
+function getFlightDateOverride() {
+  if (/^\d{4}-\d{2}-\d{2}$/.test(FLIGHT_DATE_OVERRIDE)) {
+    return FLIGHT_DATE_OVERRIDE;
+  }
+  return '';
+}
 
-  const validStartHour =
-    Number.isFinite(WINDOW_START_HOUR) &&
-    WINDOW_START_HOUR >= 0 &&
-    WINDOW_START_HOUR <= 12
-      ? Math.floor(WINDOW_START_HOUR)
-      : 0;
-  const endHour = validStartHour === 12 ? 23 : validStartHour + 11;
-  const pad = (n) => String(n).padStart(2, '0');
-
-  return {
-    datePart,
-    from: `${datePart}T${pad(validStartHour)}:00`,
-    to: `${datePart}T${pad(endHour)}:59`,
-  };
+function getLimit() {
+  if (!Number.isFinite(RESULT_LIMIT) || RESULT_LIMIT <= 0) {
+    return 100;
+  }
+  return Math.min(100, Math.floor(RESULT_LIMIT));
 }
 
 const DEFAULT_FILTERS = {
@@ -50,58 +45,84 @@ function App() {
     setLoading(true);
     setError('');
 
-    if (!HAS_RAPIDAPI_KEY) {
+    if (!HAS_AVIATIONSTACK_KEY) {
       setAllData([]);
       setLoading(false);
-      setError('Missing VITE_RAPIDAPI_KEY. Add your key in .env.local to fetch live AeroDataBox data.');
+      setError(
+        'Missing VITE_AVIATIONSTACK_KEY. Add your key in .env.local to fetch live Aviationstack data.'
+      );
       return;
     }
 
     try {
-      const { datePart, from, to } = getQueryRange();
-      const response = await fetch(
-        `https://${RAPIDAPI_HOST}/flights/airports/icao/${AIRPORT_ICAO}/${from}/${to}`,
-        {
-          headers: {
-            'X-RapidAPI-Key': RAPIDAPI_KEY,
-            'X-RapidAPI-Host': RAPIDAPI_HOST,
-          },
-        }
-      );
+      const datePart = getFlightDateOverride();
+      const limit = getLimit();
+      const query = new URLSearchParams({
+        access_key: AVIATIONSTACK_KEY,
+        dep_iata: DEPARTURE_IATA,
+        limit: String(limit),
+      });
+      if (datePart) {
+        query.set('flight_date', datePart);
+      }
+
+      const response = await fetch(`${AVIATIONSTACK_BASE_URL}/flights?${query.toString()}`);
       if (!response.ok) throw new Error(`API error: ${response.status}`);
 
       const json = await response.json();
-      // Transform AeroDataBox response into our data shape
-      const transformed = (json.departures || []).map((dep, idx) => ({
-        id: dep.number ? `${dep.number}-${idx}` : `${AIRPORT_ICAO}-${idx}`,
-        callsign: dep.callSign || dep.number || 'N/A',
-        airline: dep.airline?.name || 'Unknown',
-        flightType: dep.isCargo ? 'Cargo' : dep.isPrivate ? 'Private' : 'Passenger',
-        aircraft: {
-          manufacturer: dep.aircraft?.model?.split(' ')[0] || 'Unknown',
-          lineage: dep.aircraft?.model || 'Unknown',
-        },
-        route: {
-          origin: dep.departure?.airport?.icao || AIRPORT_ICAO,
-          destination: dep.arrival?.airport?.icao || dep.arrival?.airport?.iata || '???',
-        },
-        times: {
-          takeoff: dep.departure?.scheduledTime?.utc || new Date().toISOString(),
-          landing: dep.arrival?.scheduledTime?.utc || new Date().toISOString(),
-          flightDurationMins: (() => {
-            const d = dep.departure?.scheduledTime?.utc;
-            const a = dep.arrival?.scheduledTime?.utc;
-            if (!d || !a) return 0;
-            return Math.max(0, Math.round((new Date(a) - new Date(d)) / 60000));
-          })(),
-        },
-      }));
+      if (json?.success === false || json?.error) {
+        if (json?.error?.code === 'function_access_restricted' && datePart) {
+          throw new Error(
+            'This plan does not support the flight_date filter. Clear VITE_AVIATIONSTACK_FLIGHT_DATE in .env.local or upgrade your plan.'
+          );
+        }
+        throw new Error(json?.error?.info || 'Aviationstack returned an application error.');
+      }
+
+      // Transform Aviationstack response into our data shape
+      const transformed = (json.data || []).map((item, idx) => {
+        const departure = item.departure || {};
+        const arrival = item.arrival || {};
+        const takeoff =
+          departure.scheduled || departure.estimated || departure.actual || new Date().toISOString();
+        const landing =
+          arrival.scheduled || arrival.estimated || arrival.actual || new Date().toISOString();
+        const durationMins = (() => {
+          const d = Date.parse(takeoff);
+          const a = Date.parse(landing);
+          if (Number.isNaN(d) || Number.isNaN(a)) return 0;
+          return Math.max(0, Math.round((a - d) / 60000));
+        })();
+
+        return {
+          id: item.flight?.iata || item.flight?.icao || item.flight?.number || `flight-${idx}`,
+          callsign: item.flight?.icao || item.flight?.iata || item.flight?.number || 'N/A',
+          airline: item.airline?.name || 'Unknown',
+          flightType: 'Passenger',
+          aircraft: {
+            manufacturer: 'Unknown',
+            lineage:
+              item.aircraft?.registration ||
+              item.aircraft?.icao ||
+              item.aircraft?.iata ||
+              'Unknown',
+          },
+          route: {
+            origin: departure.iata || departure.icao || DEPARTURE_IATA,
+            destination: arrival.iata || arrival.icao || '???',
+          },
+          times: {
+            takeoff,
+            landing,
+            flightDurationMins: durationMins,
+          },
+        };
+      });
 
       setAllData(transformed);
       if (transformed.length === 0) {
-        setError(
-          `AeroDataBox returned 0 departures for ${AIRPORT_ICAO} on ${datePart} in the selected 12h window.`
-        );
+        const dateSuffix = datePart ? ` on ${datePart}` : '';
+        setError(`Aviationstack returned 0 flights for ${DEPARTURE_IATA}${dateSuffix}.`);
       }
 
       setLastUpdated(new Date());
