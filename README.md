@@ -1,16 +1,53 @@
-# React + Vite
+# AeroTrack (RapidAPI + AeroDataBox)
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+AeroTrack is a React + Vite flight dashboard that fetches live departures data from RapidAPI's AeroDataBox endpoint.
 
-Currently, two official plugins are available:
+## 1) Install
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+```bash
+npm install
+```
 
-## React Compiler
+## 2) Configure environment variables
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+Create `.env.local` in the project root:
 
-## Expanding the ESLint configuration
+```env
+VITE_RAPIDAPI_KEY=your_rapidapi_key
+VITE_RAPIDAPI_HOST=aerodatabox.p.rapidapi.com
+VITE_AERODATABOX_AIRPORT_ICAO=KJFK
+VITE_AERODATABOX_DATE=2026-04-05
+VITE_AERODATABOX_WINDOW_START_HOUR=0
+```
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+Required:
+- `VITE_RAPIDAPI_KEY`
+
+Optional:
+- `VITE_RAPIDAPI_HOST` (default: `aerodatabox.p.rapidapi.com`)
+- `VITE_AERODATABOX_AIRPORT_ICAO` (default: `KJFK`)
+- `VITE_AERODATABOX_DATE` in `YYYY-MM-DD` format (default: current UTC date)
+- `VITE_AERODATABOX_WINDOW_START_HOUR` from `0` to `12` (default: `0`)
+
+Note:
+- This AeroDataBox endpoint allows max 12 hours per request. The app queries a 12-hour window from `WINDOW_START_HOUR` to `WINDOW_START_HOUR + 11:59`.
+
+## 3) Run in development
+
+```bash
+npm run dev
+```
+
+## 4) Build for production
+
+```bash
+npm run build
+npm run preview
+```
+
+## Troubleshooting
+
+- If you see `Missing VITE_RAPIDAPI_KEY`, your `.env.local` is missing the API key.
+- If you receive an HTTP error (`401`, `403`, `429`), verify RapidAPI plan limits and key permissions.
+- If you receive HTTP `400` with a period/time-range message, make sure your query window is 12 hours or less.
+- If no flights appear, try a different ICAO code or date.
