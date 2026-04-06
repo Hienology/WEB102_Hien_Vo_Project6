@@ -1,6 +1,4 @@
-import { orderBy } from 'lodash';
-import { useState } from 'react';
-import { Plane, Package, Lock, ArrowUpDown, ArrowUp, ArrowDown } from 'lucide-react';
+import { Plane, Package, Lock } from 'lucide-react';
 
 const TYPE_CONFIG = {
   Passenger: {
@@ -20,20 +18,11 @@ const TYPE_CONFIG = {
 const COLUMNS = [
   { key: 'callsign', label: 'Callsign' },
   { key: 'airline', label: 'Airline' },
-  { key: 'aircraft', label: 'Aircraft' },
+  { key: 'identificationNumber', label: 'Identification Number' },
   { key: 'flightType', label: 'Type' },
   { key: 'route', label: 'Route' },
-  { key: 'times.flightDurationMins', label: 'Duration' },
+  { key: 'duration', label: 'Duration' },
 ];
-
-function SortIcon({ column, sortKey, sortDir }) {
-  if (sortKey !== column) return <ArrowUpDown className="w-3 h-3 text-gray-600" />;
-  return sortDir === 'asc' ? (
-    <ArrowUp className="w-3 h-3 text-sky-400" />
-  ) : (
-    <ArrowDown className="w-3 h-3 text-sky-400" />
-  );
-}
 
 function formatDuration(mins) {
   const h = Math.floor(mins / 60);
@@ -42,20 +31,6 @@ function formatDuration(mins) {
 }
 
 function FlightGrid({ data }) {
-  const [sortKey, setSortKey] = useState('callsign');
-  const [sortDir, setSortDir] = useState('asc');
-
-  const handleSort = (col) => {
-    if (sortKey === col) {
-      setSortDir((d) => (d === 'asc' ? 'desc' : 'asc'));
-    } else {
-      setSortKey(col);
-      setSortDir('asc');
-    }
-  };
-
-  const sorted = orderBy(data, [sortKey], [sortDir]);
-
   if (data.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center py-20 text-center">
@@ -79,19 +54,15 @@ function FlightGrid({ data }) {
               {COLUMNS.map((col) => (
                 <th
                   key={col.key}
-                  onClick={() => handleSort(col.key)}
-                  className="px-4 py-3 text-left cursor-pointer hover:text-sky-400 transition-colors select-none"
+                  className="px-4 py-3 text-left"
                 >
-                  <span className="flex items-center gap-1">
-                    {col.label}
-                    <SortIcon column={col.key} sortKey={sortKey} sortDir={sortDir} />
-                  </span>
+                  {col.label}
                 </th>
               ))}
             </tr>
           </thead>
           <tbody>
-            {sorted.map((flight, idx) => {
+            {data.map((flight, idx) => {
               const typeConf = TYPE_CONFIG[flight.flightType] || TYPE_CONFIG.Passenger;
               return (
                 <tr
@@ -108,11 +79,9 @@ function FlightGrid({ data }) {
                   {/* Airline */}
                   <td className="px-4 py-3 text-gray-300">{flight.airline}</td>
 
-                  {/* Aircraft */}
-                  <td className="px-4 py-3 text-gray-300">
-                    <span className="text-gray-400">{flight.aircraft.manufacturer}</span>
-                    <span className="mx-1 text-gray-600">/</span>
-                    <span>{flight.aircraft.lineage}</span>
+                  {/* Identification Number */}
+                  <td className="px-4 py-3 text-gray-300 font-mono">
+                    {flight.aircraft.lineage || 'Unknown'}
                   </td>
 
                   {/* Flight Type */}

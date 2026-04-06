@@ -1,6 +1,8 @@
-# AeroTrack (Aviationstack)
+# AeroTrack (OpenSky Network)
 
-AeroTrack is a React + Vite flight dashboard that fetches live flight data from Aviationstack.
+AeroTrack is a React + Vite flight dashboard that fetches departure flights from OpenSky Network using OAuth client credentials.
+
+In development, the app calls a local Vite proxy endpoint (`/api/opensky/departures`) that handles token exchange server-side to avoid browser CORS issues.
 
 ## 1) Install
 
@@ -13,25 +15,35 @@ npm install
 Create `.env.local` in the project root:
 
 ```env
-VITE_AVIATIONSTACK_KEY=your_aviationstack_key
-VITE_AVIATIONSTACK_BASE_URL=https://api.aviationstack.com/v1
-VITE_AVIATIONSTACK_DEPARTURE_IATA=JFK
-VITE_AVIATIONSTACK_FLIGHT_DATE=
-VITE_AVIATIONSTACK_LIMIT=100
+VITE_OPENSKY_CLIENT_ID=your_client_id
+VITE_OPENSKY_CLIENT_SECRET=your_client_secret
+VITE_OPENSKY_API_BASE_URL=https://opensky-network.org/api
+VITE_OPENSKY_TOKEN_URL=https://auth.opensky-network.org/auth/realms/opensky-network/protocol/openid-connect/token
+VITE_OPENSKY_AIRPORT_ICAO=KJFK,KLAX,KSFO
+VITE_OPENSKY_FLIGHT_DATE=
+VITE_OPENSKY_WINDOW_START_HOUR=0
+VITE_OPENSKY_WINDOW_HOURS=12
+VITE_OPENSKY_REQUEST_DELAY_MS=1100
 ```
 
 Required:
-- `VITE_AVIATIONSTACK_KEY`
+- `VITE_OPENSKY_CLIENT_ID`
+- `VITE_OPENSKY_CLIENT_SECRET`
 
 Optional:
-- `VITE_AVIATIONSTACK_BASE_URL` (default: `https://api.aviationstack.com/v1`)
-- `VITE_AVIATIONSTACK_DEPARTURE_IATA` (default: `JFK`)
-- `VITE_AVIATIONSTACK_FLIGHT_DATE` in `YYYY-MM-DD` format (default: empty / not sent)
-- `VITE_AVIATIONSTACK_LIMIT` from `1` to `100` (default: `100`)
+- `VITE_OPENSKY_API_BASE_URL` (default: `https://opensky-network.org/api`)
+- `VITE_OPENSKY_TOKEN_URL` (default in file above)
+- `VITE_OPENSKY_AIRPORT_ICAO` comma-separated ICAO list (default: `KJFK`)
+- `VITE_OPENSKY_FLIGHT_DATE` in `YYYY-MM-DD` format (default: current UTC date)
+- `VITE_OPENSKY_WINDOW_START_HOUR` from `0` to `23` (default: `0`)
+- `VITE_OPENSKY_WINDOW_HOURS` from `1` to `24` (default: `12`)
+- `VITE_OPENSKY_REQUEST_DELAY_MS` delay between airport requests in ms (default: `1100`)
 
-Note:
-- If your Aviationstack plan does not support HTTPS, set `VITE_AVIATIONSTACK_BASE_URL=http://api.aviationstack.com/v1` in `.env.local`.
-- Some free plans do not support the `flight_date` filter. If you get `function_access_restricted`, keep `VITE_AVIATIONSTACK_FLIGHT_DATE` empty.
+Notes:
+- Multi-airport mode sends one request per airport, so API usage increases quickly with long airport lists.
+- Requests are executed sequentially with delay to reduce 429 spikes.
+- OpenSky payload may not include aircraft model/manufacturer for every flight. The UI falls back to identification values like `icao24`.
+- After changing `.env.local`, restart `npm run dev` so the Vite proxy reloads updated credentials.
 
 ## 3) Run in development
 
@@ -46,35 +58,9 @@ npm run build
 npm run preview
 ```
 
-## What To Do Now (Codespaces Only)
-
-1. Keep all work inside Codespaces terminal/editor. No local setup is required.
-2. Put your real key in `.env.local` and never paste keys into docs, screenshots, or chat.
-3. Start the app:
-
-```bash
-npm run dev
-```
-
-4. Verify API connectivity with one direct request (uses the same env vars as the app):
-
-```bash
-set -a && source .env.local && set +a
-LIMIT="${VITE_AVIATIONSTACK_LIMIT:-100}"
-curl -sS -o /tmp/aviationstack.json -w "HTTP %{http_code}\n" \
-	"${VITE_AVIATIONSTACK_BASE_URL}/flights?access_key=${VITE_AVIATIONSTACK_KEY}&dep_iata=${VITE_AVIATIONSTACK_DEPARTURE_IATA}&limit=${LIMIT}"
-```
-
-5. In the app, click `Refresh Board` and confirm flights appear.
-
-## Aviationstack API Scope For This Project
-
-Use now:
-- `Flights`: main source for dashboard rows and stats.
-
 ## Troubleshooting
 
-- If you see `Missing VITE_AVIATIONSTACK_KEY`, your `.env.local` is missing the API key.
-- If you receive an HTTP error (`401`, `403`, `429`), verify key validity and plan limits.
-- If HTTPS requests fail, switch `VITE_AVIATIONSTACK_BASE_URL` to `http://api.aviationstack.com/v1` depending on your plan.
-- If no flights appear, try a different IATA code or date.
+- If you see missing credentials error, check `VITE_OPENSKY_CLIENT_ID` and `VITE_OPENSKY_CLIENT_SECRET` in `.env.local`.
+- If auth fails (`401` or `403`), verify your OpenSky client credentials and token URL.
+- If you receive `429`, reduce airport count and increase `VITE_OPENSKY_REQUEST_DELAY_MS`.
+- If no flights are returned, try fewer airports, a wider time window, or a different date.

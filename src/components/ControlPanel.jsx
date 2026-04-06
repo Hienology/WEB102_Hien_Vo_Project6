@@ -1,6 +1,5 @@
 import { Search, X, SlidersHorizontal } from 'lucide-react';
 
-const MANUFACTURERS = ['All', 'Boeing', 'Airbus', 'Embraer'];
 const FLIGHT_TYPES = ['All', 'Passenger', 'Cargo', 'Private'];
 const MAX_DURATION = 900;
 
@@ -10,9 +9,6 @@ function ControlPanel({ filters, onChange, onReset, onRefresh, loading }) {
 
   const handleTypeChange = (type) =>
     onChange({ ...filters, flightType: type });
-
-  const handleManufacturerChange = (e) =>
-    onChange({ ...filters, manufacturer: e.target.value });
 
   const handleDurationChange = (e) =>
     onChange({ ...filters, maxDurationMins: Number(e.target.value) });
@@ -26,7 +22,6 @@ function ControlPanel({ filters, onChange, onReset, onRefresh, loading }) {
   const hasActiveFilters =
     filters.searchText !== '' ||
     filters.flightType !== 'All' ||
-    filters.manufacturer !== 'All' ||
     filters.maxDurationMins < MAX_DURATION;
 
   return (
@@ -77,7 +72,7 @@ function ControlPanel({ filters, onChange, onReset, onRefresh, loading }) {
         )}
       </div>
 
-      {/* Row: Flight Type + Manufacturer + Duration */}
+      {/* Row: Flight Type + Duration */}
       <div className="flex flex-col md:flex-row gap-4">
         {/* Flight Type Tabs */}
         <div className="flex-1">
@@ -99,24 +94,6 @@ function ControlPanel({ filters, onChange, onReset, onRefresh, loading }) {
               </button>
             ))}
           </div>
-        </div>
-
-        {/* Manufacturer Dropdown */}
-        <div className="flex-1">
-          <p className="text-gray-400 text-xs uppercase tracking-widest mb-2">
-            Manufacturer
-          </p>
-          <select
-            value={filters.manufacturer}
-            onChange={handleManufacturerChange}
-            className="w-full py-2 px-3 rounded-lg bg-gray-900 border border-gray-600 text-gray-100 text-sm focus:outline-none focus:border-sky-500 transition-colors"
-          >
-            {MANUFACTURERS.map((m) => (
-              <option key={m} value={m}>
-                {m}
-              </option>
-            ))}
-          </select>
         </div>
 
         {/* Duration Slider */}
@@ -160,14 +137,6 @@ function ControlPanel({ filters, onChange, onReset, onRefresh, loading }) {
             <span className="flex items-center gap-1 px-2 py-1 rounded-full text-xs bg-sky-900/50 text-sky-300 border border-sky-700">
               Type: {filters.flightType}
               <button onClick={() => onChange({ ...filters, flightType: 'All' })}>
-                <X className="w-3 h-3 ml-1 hover:text-white" />
-              </button>
-            </span>
-          )}
-          {filters.manufacturer !== 'All' && (
-            <span className="flex items-center gap-1 px-2 py-1 rounded-full text-xs bg-sky-900/50 text-sky-300 border border-sky-700">
-              Mfr: {filters.manufacturer}
-              <button onClick={() => onChange({ ...filters, manufacturer: 'All' })}>
                 <X className="w-3 h-3 ml-1 hover:text-white" />
               </button>
             </span>
