@@ -64,3 +64,5 @@ npm run preview
 - If auth fails (`401` or `403`), verify your OpenSky client credentials and token URL.
 - If you receive `429`, reduce airport count and increase `VITE_OPENSKY_REQUEST_DELAY_MS`.
 - If no flights are returned, try fewer airports, a wider time window, or a different date.
+
+![AeroTrack Demo](public/WEB102_Project_Week6_Demo.gif)
