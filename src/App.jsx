@@ -11,7 +11,7 @@ function Layout() {
     >
       <div className="min-h-screen bg-gray-950/78 md:flex">
         <Sidebar />
-        <div className="flex-1">
+        <div className="flex-1 min-w-0">
           <header className="border-b border-gray-800 bg-gray-950/70">
             <div className="max-w-7xl mx-auto px-4 md:px-8 py-6">
               <h1 className="text-3xl md:text-5xl font-black uppercase tracking-[0.18em] text-white">
@@ -19,7 +19,9 @@ function Layout() {
               </h1>
             </div>
           </header>
-          <Outlet />
+          <main className="w-full">
+            <Outlet />
+          </main>
         </div>
       </div>
     </div>
@@ -39,7 +41,7 @@ function App() {
     <Routes>
       <Route element={<Layout />}>
         <Route path="/" element={<Dashboard />} />
-        <Route path="/flight/:callsign" element={<FlightDetailPage />} />
+        <Route path="/flight/:flightId" element={<FlightDetailPage />} />
         <Route path="/search" element={<Navigate to="/" replace />} />
         <Route path="/about" element={<Navigate to="/" replace />} />
         <Route path="*" element={<NotFound />} />
