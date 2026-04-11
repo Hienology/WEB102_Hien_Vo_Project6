@@ -1,3 +1,4 @@
+import { Link } from 'react-router-dom';
 import { Plane, Package, Lock } from 'lucide-react';
 
 const TYPE_CONFIG = {
@@ -52,10 +53,7 @@ function FlightGrid({ data }) {
           <thead>
             <tr className="bg-gray-900 text-gray-400 uppercase text-xs tracking-wider">
               {COLUMNS.map((col) => (
-                <th
-                  key={col.key}
-                  className="px-4 py-3 text-left"
-                >
+                <th key={col.key} className="px-4 py-3 text-left">
                   {col.label}
                 </th>
               ))}
@@ -71,20 +69,21 @@ function FlightGrid({ data }) {
                     idx % 2 === 0 ? 'bg-gray-800' : 'bg-gray-800/60'
                   }`}
                 >
-                  {/* Callsign */}
-                  <td className="px-4 py-3 font-mono font-bold text-white tracking-widest">
-                    {flight.callsign}
+                  <td className="px-4 py-3 font-mono font-bold tracking-widest">
+                    <Link
+                      to={`/flight/${encodeURIComponent(flight.id)}`}
+                      className="text-white hover:text-sky-300 underline-offset-2 hover:underline"
+                    >
+                      {flight.callsign}
+                    </Link>
                   </td>
 
-                  {/* Airline */}
                   <td className="px-4 py-3 text-gray-300">{flight.airline}</td>
 
-                  {/* Identification Number */}
                   <td className="px-4 py-3 text-gray-300 font-mono">
                     {flight.aircraft.lineage || 'Unknown'}
                   </td>
 
-                  {/* Flight Type */}
                   <td className="px-4 py-3">
                     <span
                       className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full border text-xs font-semibold ${typeConf.badge}`}
@@ -94,14 +93,12 @@ function FlightGrid({ data }) {
                     </span>
                   </td>
 
-                  {/* Route */}
                   <td className="px-4 py-3 font-mono text-gray-200">
                     <span className="text-sky-400">{flight.route.origin}</span>
                     <span className="mx-1 text-gray-500">→</span>
                     <span className="text-sky-300">{flight.route.destination}</span>
                   </td>
 
-                  {/* Duration */}
                   <td className="px-4 py-3 font-mono text-amber-300">
                     {formatDuration(flight.times.flightDurationMins)}
                   </td>
