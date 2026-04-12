@@ -9,20 +9,11 @@ function Layout() {
       className="min-h-screen bg-cover bg-center bg-no-repeat bg-fixed text-gray-100"
       style={{ backgroundImage: "url('/595_projekt_100.jpg')" }}
     >
-      <div className="min-h-screen bg-gray-950/78 md:flex">
+      <div className="min-h-screen bg-gray-950/78">
         <Sidebar />
-        <div className="flex-1 min-w-0">
-          <header className="border-b border-gray-800 bg-gray-950/70">
-            <div className="max-w-7xl mx-auto px-4 md:px-8 py-6">
-              <h1 className="text-3xl md:text-5xl font-black uppercase tracking-[0.18em] text-white">
-                AeroTrack
-              </h1>
-            </div>
-          </header>
-          <main className="w-full">
-            <Outlet />
-          </main>
-        </div>
+        <main className="w-full">
+          <Outlet />
+        </main>
       </div>
     </div>
   );

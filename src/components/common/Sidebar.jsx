@@ -1,5 +1,5 @@
-import { Link, NavLink } from 'react-router-dom';
-import { Plane, LayoutDashboard, Search, Info } from 'lucide-react';
+import { NavLink } from 'react-router-dom';
+import { LayoutDashboard, Search, Info } from 'lucide-react';
 
 const navItems = [
   { to: '/', label: 'Dashboard', icon: <LayoutDashboard className="w-4 h-4" /> },
@@ -9,35 +9,32 @@ const navItems = [
 
 function Sidebar() {
   return (
-    <aside className="w-full md:w-64 md:min-h-screen border-r border-gray-800 bg-gray-950/90 backdrop-blur">
-      <div className="p-4 md:p-6 border-b border-gray-800">
-        <Link to="/" className="inline-flex items-center gap-2 text-white">
-          <span className="p-2 rounded-lg bg-sky-500/20">
-            <Plane className="w-5 h-5 text-sky-400" />
-          </span>
-          <span className="font-black tracking-widest uppercase">AeroTrack</span>
-        </Link>
-      </div>
+    <header className="sticky top-0 z-40 border-b border-gray-800 bg-gray-950/90 backdrop-blur">
+      <div className="max-w-7xl mx-auto px-4 md:px-8 py-5 flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+        <h1 className="text-3xl md:text-5xl font-black uppercase tracking-[0.18em] text-white leading-none">
+          AeroTrack
+        </h1>
 
-      <nav className="p-3 md:p-4 space-y-1">
-        {navItems.map(({ to, label, icon }) => (
-          <NavLink
-            key={to}
-            to={to}
-            className={({ isActive }) =>
-              `w-full flex items-center gap-2 rounded-lg px-3 py-2 text-sm transition-colors ${
-                isActive
-                  ? 'bg-sky-500/20 text-sky-300 border border-sky-700/50'
-                  : 'text-gray-300 hover:bg-gray-800 hover:text-white'
-              }`
-            }
-          >
-            {icon}
-            {label}
-          </NavLink>
-        ))}
-      </nav>
-    </aside>
+        <nav className="flex flex-wrap items-center gap-2">
+          {navItems.map(({ to, label, icon }) => (
+            <NavLink
+              key={to}
+              to={to}
+              className={({ isActive }) =>
+                `inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-semibold transition-colors ${
+                  isActive
+                    ? 'bg-sky-500/20 text-sky-300 border border-sky-700/50'
+                    : 'text-gray-300 border border-gray-700 hover:bg-gray-800 hover:text-white'
+                }`
+              }
+            >
+              {icon}
+              {label}
+            </NavLink>
+          ))}
+        </nav>
+      </div>
+    </header>
   );
 }
 
