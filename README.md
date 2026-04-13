@@ -23,7 +23,9 @@ VITE_OPENSKY_AIRPORT_ICAO=KJFK,KLAX,KSFO
 VITE_OPENSKY_FLIGHT_DATE=
 VITE_OPENSKY_WINDOW_START_HOUR=0
 VITE_OPENSKY_WINDOW_HOURS=12
+VITE_OPENSKY_LOOKBACK_DAYS=3
 VITE_OPENSKY_REQUEST_DELAY_MS=1100
+VITE_OPENSKY_TABLE_LIMIT=100
 ```
 
 Required:
@@ -34,10 +36,16 @@ Optional:
 - `VITE_OPENSKY_API_BASE_URL` (default: `https://opensky-network.org/api`)
 - `VITE_OPENSKY_TOKEN_URL` (default in file above)
 - `VITE_OPENSKY_AIRPORT_ICAO` comma-separated ICAO list (default: `KJFK`)
-- `VITE_OPENSKY_FLIGHT_DATE` in `YYYY-MM-DD` format (default: current UTC date)
+- `VITE_OPENSKY_FLIGHT_DATE` in `YYYY-MM-DD` format (if set, uses fixed single-day mode)
 - `VITE_OPENSKY_WINDOW_START_HOUR` from `0` to `23` (default: `0`)
 - `VITE_OPENSKY_WINDOW_HOURS` from `1` to `24` (default: `12`)
+- `VITE_OPENSKY_LOOKBACK_DAYS` from `1` to `7` (default: `3`, excludes current UTC day in rolling mode)
 - `VITE_OPENSKY_REQUEST_DELAY_MS` delay between airport requests in ms (default: `1100`)
+- `VITE_OPENSKY_TABLE_LIMIT` initial dashboard table row limit (default: `100`, max: `2000`)
+
+Behavior:
+- If `VITE_OPENSKY_FLIGHT_DATE` is empty, the app fetches a rolling window from today 00:00 UTC minus `VITE_OPENSKY_LOOKBACK_DAYS` up to today 00:00 UTC.
+- Full fetched results are used for statistics/charts. The table can show first X rows via the Control Panel selector.
 
 Notes:
 - Multi-airport mode sends one request per airport, so API usage increases quickly with long airport lists.

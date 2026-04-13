@@ -2,8 +2,18 @@ import { Search, X, SlidersHorizontal } from 'lucide-react';
 
 const FLIGHT_TYPES = ['All', 'Passenger', 'Cargo', 'Private'];
 const MAX_DURATION = 900;
+const TABLE_LIMIT_OPTIONS = [50, 100, 200, 500, 1000, 2000];
 
-function ControlPanel({ filters, onChange, onReset, onRefresh, loading }) {
+function ControlPanel({
+  filters,
+  onChange,
+  onReset,
+  onRefresh,
+  tableLimit,
+  onTableLimitChange,
+  totalCount,
+  loading,
+}) {
   const handleTextChange = (e) =>
     onChange({ ...filters, searchText: e.target.value });
 
@@ -120,6 +130,24 @@ function ControlPanel({ filters, onChange, onReset, onRefresh, loading }) {
             <span>15h</span>
           </div>
         </div>
+      </div>
+
+      {/* Table Limit */}
+      <div className="flex items-center justify-between gap-3 pt-1 border-t border-gray-700">
+        <p className="text-gray-400 text-xs uppercase tracking-widest">
+          Table Rows: showing first {Math.min(totalCount, tableLimit)} of {totalCount}
+        </p>
+        <select
+          value={tableLimit}
+          onChange={(e) => onTableLimitChange(Number(e.target.value) || 100)}
+          className="rounded-md bg-gray-900 border border-gray-600 text-gray-200 text-sm px-3 py-1.5 focus:outline-none focus:border-sky-500"
+        >
+          {TABLE_LIMIT_OPTIONS.map((opt) => (
+            <option key={opt} value={opt}>
+              First {opt}
+            </option>
+          ))}
+        </select>
       </div>
 
       {/* Active filter pills */}

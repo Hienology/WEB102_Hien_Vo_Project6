@@ -31,7 +31,7 @@ function formatDuration(mins) {
   return `${h}h ${m.toString().padStart(2, '0')}m`;
 }
 
-function FlightGrid({ data }) {
+function FlightGrid({ data, totalCount = data.length }) {
   if (data.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center py-20 text-center">
@@ -109,7 +109,7 @@ function FlightGrid({ data }) {
         </table>
       </div>
       <div className="px-4 py-2 bg-gray-900/50 border-t border-gray-700 text-xs text-gray-500">
-        Showing {data.length} flight{data.length !== 1 ? 's' : ''}
+        Showing {data.length} of {totalCount} flight{totalCount !== 1 ? 's' : ''}
       </div>
     </div>
   );

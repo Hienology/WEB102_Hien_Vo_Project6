@@ -1,11 +1,14 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 const AIRPORT_ICAO_ENV = (import.meta.env.VITE_OPENSKY_AIRPORT_ICAO || 'KJFK').trim();
 const FLIGHT_DATE_OVERRIDE = (import.meta.env.VITE_OPENSKY_FLIGHT_DATE || '').trim();
 const WINDOW_START_HOUR = Number(import.meta.env.VITE_OPENSKY_WINDOW_START_HOUR ?? 0);
 const WINDOW_HOURS = Number(import.meta.env.VITE_OPENSKY_WINDOW_HOURS ?? 12);
+const LOOKBACK_DAYS = Number(import.meta.env.VITE_OPENSKY_LOOKBACK_DAYS ?? 3);
 const REQUEST_DELAY_MS = Number(import.meta.env.VITE_OPENSKY_REQUEST_DELAY_MS ?? 1100);
-const MAX_RESULTS = Number(import.meta.env.VITE_OPENSKY_MAX_RESULTS ?? 100);
+const TABLE_LIMIT = Number(
+  import.meta.env.VITE_OPENSKY_TABLE_LIMIT ?? import.meta.env.VITE_OPENSKY_MAX_RESULTS ?? 100
+);
 
 function getAirportIcaoList() {
   const airports = AIRPORT_ICAO_ENV.split(',')
@@ -23,33 +26,49 @@ function getRequestDelayMs() {
   return Math.min(5000, Math.floor(REQUEST_DELAY_MS));
 }
 
-function getMaxResults() {
-  if (!Number.isFinite(MAX_RESULTS) || MAX_RESULTS < 1) {
+function getDisplayLimit() {
+  if (!Number.isFinite(TABLE_LIMIT) || TABLE_LIMIT < 1) {
     return 100;
   }
-  return Math.min(500, Math.floor(MAX_RESULTS));
+  return Math.min(2000, Math.floor(TABLE_LIMIT));
 }
 
 function getQueryWindow() {
-  const datePart = /^\d{4}-\d{2}-\d{2}$/.test(FLIGHT_DATE_OVERRIDE)
-    ? FLIGHT_DATE_OVERRIDE
-    : new Date().toISOString().slice(0, 10);
+  const lookbackDays =
+    Number.isFinite(LOOKBACK_DAYS) && LOOKBACK_DAYS >= 1 && LOOKBACK_DAYS <= 7
+      ? Math.floor(LOOKBACK_DAYS)
+      : 3;
 
-  const startHour =
-    Number.isFinite(WINDOW_START_HOUR) && WINDOW_START_HOUR >= 0 && WINDOW_START_HOUR <= 23
-      ? Math.floor(WINDOW_START_HOUR)
-      : 0;
-  const durationHours =
-    Number.isFinite(WINDOW_HOURS) && WINDOW_HOURS > 0 && WINDOW_HOURS <= 24
-      ? Math.floor(WINDOW_HOURS)
-      : 12;
+  if (/^\d{4}-\d{2}-\d{2}$/.test(FLIGHT_DATE_OVERRIDE)) {
+    const startHour =
+      Number.isFinite(WINDOW_START_HOUR) && WINDOW_START_HOUR >= 0 && WINDOW_START_HOUR <= 23
+        ? Math.floor(WINDOW_START_HOUR)
+        : 0;
+    const lookbackDays =
+      Number.isFinite(LOOKBACK_DAYS) && LOOKBACK_DAYS >= 1 && LOOKBACK_DAYS <= 7
+        ? Math.floor(LOOKBACK_DAYS)
+        : 3;
 
-  const begin = new Date(`${datePart}T00:00:00Z`);
-  begin.setUTCHours(startHour, 0, 0, 0);
-  const end = new Date(begin.getTime() + durationHours * 60 * 60 * 1000);
+    const end = new Date(`${FLIGHT_DATE_OVERRIDE}T00:00:00Z`);
+    end.setUTCHours(24, 0, 0, 0);
+    const begin = new Date(end.getTime() - lookbackDays * 24 * 60 * 60 * 1000);
+    begin.setUTCHours(startHour, 0, 0, 0);
+
+    return {
+      datePart: `${begin.toISOString().slice(0, 10)} to ${FLIGHT_DATE_OVERRIDE}`,
+      beginUnix: Math.floor(begin.getTime() / 1000),
+      endUnix: Math.floor(end.getTime() / 1000),
+    };
+  }
+
+  const end = new Date();
+  end.setUTCHours(0, 0, 0, 0);
+  const begin = new Date(end.getTime() - lookbackDays * 24 * 60 * 60 * 1000);
+  const startDate = begin.toISOString().slice(0, 10);
+  const endDate = new Date(end.getTime() - 1000).toISOString().slice(0, 10);
 
   return {
-    datePart,
+    datePart: `${startDate} to ${endDate}`,
     beginUnix: Math.floor(begin.getTime() / 1000),
     endUnix: Math.floor(end.getTime() / 1000),
   };
@@ -64,14 +83,17 @@ function formatHour(hour) {
 }
 
 export function buildAggregates(flights) {
-  const byAirlineMap = new Map();
+  const byRouteMap = new Map();
+  const byCallsignPrefixMap = new Map();
   const byHourMap = new Map(Array.from({ length: 24 }, (_, i) => [i, 0]));
 
   let totalDurationMins = 0;
 
   flights.forEach((flight) => {
-    const airline = flight.airline || 'Unknown';
-    byAirlineMap.set(airline, (byAirlineMap.get(airline) || 0) + 1);
+    const origin = flight.route?.origin || '???';
+    const destination = flight.route?.destination || 'N/A';
+    const route = `${origin} -> ${destination}`;
+    byRouteMap.set(route, (byRouteMap.get(route) || 0) + 1);
 
     const takeoffDate = new Date(flight.times.takeoff);
     if (!Number.isNaN(takeoffDate.getTime())) {
@@ -79,10 +101,19 @@ export function buildAggregates(flights) {
       byHourMap.set(hour, (byHourMap.get(hour) || 0) + 1);
     }
 
-    totalDurationMins += flight.times.flightDurationMins || 0;
+    const duration = flight.times.flightDurationMins || 0;
+    totalDurationMins += duration;
+
+    const callsignPrefix = (flight.callsign || 'N/A')
+      .trim()
+      .toUpperCase()
+      .replace(/[^A-Z0-9]/g, '')
+      .slice(0, 3);
+    const prefixLabel = callsignPrefix || 'N/A';
+    byCallsignPrefixMap.set(prefixLabel, (byCallsignPrefixMap.get(prefixLabel) || 0) + 1);
   });
 
-  const byAirline = [...byAirlineMap.entries()]
+  const byRoute = [...byRouteMap.entries()]
     .map(([name, value]) => ({ name, value }))
     .sort((a, b) => b.value - a.value);
 
@@ -92,8 +123,13 @@ export function buildAggregates(flights) {
     departures,
   }));
 
+  const byCallsignPrefix = [...byCallsignPrefixMap.entries()]
+    .map(([name, value]) => ({ name, value }))
+    .sort((a, b) => b.value - a.value);
+
   return {
-    byAirline,
+    byRoute,
+    byCallsignPrefix,
     byHour,
     totals: {
       flights: flights.length,
@@ -107,13 +143,22 @@ export default function useFlightData() {
   const [allData, setAllData] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [activeWindow, setActiveWindow] = useState('');
+  const hasInitializedRef = useRef(false);
+  const inFlightRef = useRef(false);
 
   const refreshData = useCallback(async () => {
+    if (inFlightRef.current) {
+      return;
+    }
+
+    inFlightRef.current = true;
     setLoading(true);
     setError('');
 
     try {
       const { datePart, beginUnix, endUnix } = getQueryWindow();
+      setActiveWindow(`${datePart} (UTC)`);
       const requestDelayMs = getRequestDelayMs();
       const airports = getAirportIcaoList();
       const skippedAirports = [];
@@ -221,9 +266,8 @@ export default function useFlightData() {
         };
       });
 
-      const maxResults = getMaxResults();
-      const limitedFlights = transformed.slice(0, maxResults);
-      setAllData(limitedFlights);
+      const displayLimit = getDisplayLimit();
+      setAllData(transformed);
 
       const notices = [];
       if (skippedAirports.length > 0 || failedAirports.length > 0) {
@@ -236,32 +280,37 @@ export default function useFlightData() {
         }
         notices.push(`Partial data loaded. ${parts.join('. ')}`);
       }
-      if (transformed.length > maxResults) {
-        notices.push(`Showing first ${maxResults} flights (out of ${transformed.length}).`);
-      }
       if (
-        limitedFlights.length > 0 &&
-        limitedFlights.every((flight) => flight.route.destination === 'N/A')
+        transformed.length > 0 &&
+        transformed.every((flight) => flight.route.destination === 'N/A')
       ) {
         notices.push(
           'OpenSky departures feed is not returning destination airports for this time window, so destination is shown as N/A.'
         );
       }
-      if (limitedFlights.length === 0) {
+      if (transformed.length === 0) {
         const dateSuffix = datePart ? ` on ${datePart}` : '';
         setError(`OpenSky returned 0 departures for ${airports.join(', ')}${dateSuffix}.`);
       } else {
+        if (transformed.length > displayLimit) {
+          notices.push(`Loaded ${transformed.length} flights. Table is set to show first ${displayLimit}.`);
+        }
         setError(notices.join(' '));
       }
     } catch (err) {
       console.error('Failed to fetch flight data:', err);
       setError(err instanceof Error ? err.message : 'Failed to fetch flight data.');
     } finally {
+      inFlightRef.current = false;
       setLoading(false);
     }
   }, []);
 
   useEffect(() => {
+    if (hasInitializedRef.current) {
+      return;
+    }
+    hasInitializedRef.current = true;
     refreshData();
   }, [refreshData]);
 
@@ -269,6 +318,8 @@ export default function useFlightData() {
 
   return {
     allData,
+    displayLimit: getDisplayLimit(),
+    activeWindow,
     loading,
     error,
     refreshData,
