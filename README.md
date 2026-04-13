@@ -73,4 +73,10 @@ npm run preview
 - If you receive `429`, reduce airport count and increase `VITE_OPENSKY_REQUEST_DELAY_MS`.
 - If no flights are returned, try fewer airports, a wider time window, or a different date.
 
-![AeroTrack Demo](public/WEB102_Project_Week6_Demo.gif)
+### Demo
+
+Part 1 (Week 6):
+![AeroTrack Demo - Part 1](public/WEB102_Project_Week6_Demo.gif)
+
+Part 2 (Week 7, just a little more features than Week 6 on the same base):
+![AeroTrack Demo - Part 2](public/Demo_Project6_7.gif)

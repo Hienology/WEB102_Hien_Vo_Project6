@@ -62,7 +62,7 @@ function Dashboard() {
       <StatCards data={allData} />
 
       <div className="grid grid-cols-1 xl:grid-cols-2 gap-4 mb-6">
-        <AirlineShareChart data={chartAggregates.byCallsignPrefix} />
+        <AirlineShareChart data={chartAggregates.byDurationClass} />
         <HourlyDepartureChart data={chartAggregates.byHour} />
       </div>
 

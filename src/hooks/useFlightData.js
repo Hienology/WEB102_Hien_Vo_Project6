@@ -78,13 +78,35 @@ function wait(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
+function buildTimeChunks(beginUnix, endUnix, maxChunkSeconds = 24 * 60 * 60) {
+  const chunks = [];
+  if (!Number.isFinite(beginUnix) || !Number.isFinite(endUnix) || beginUnix >= endUnix) {
+    return chunks;
+  }
+
+  let cursor = Math.floor(beginUnix);
+  const end = Math.floor(endUnix);
+
+  while (cursor < end) {
+    const chunkEnd = Math.min(cursor + maxChunkSeconds - 1, end);
+    chunks.push({ begin: cursor, end: chunkEnd });
+    cursor = chunkEnd + 1;
+  }
+
+  return chunks;
+}
+
 function formatHour(hour) {
   return `${String(hour).padStart(2, '0')}:00`;
 }
 
 export function buildAggregates(flights) {
   const byRouteMap = new Map();
-  const byCallsignPrefixMap = new Map();
+  const byDurationClassMap = new Map([
+    ['Short Haul', 0],
+    ['Medium Haul', 0],
+    ['Long Haul', 0],
+  ]);
   const byHourMap = new Map(Array.from({ length: 24 }, (_, i) => [i, 0]));
 
   let totalDurationMins = 0;
@@ -103,14 +125,13 @@ export function buildAggregates(flights) {
 
     const duration = flight.times.flightDurationMins || 0;
     totalDurationMins += duration;
-
-    const callsignPrefix = (flight.callsign || 'N/A')
-      .trim()
-      .toUpperCase()
-      .replace(/[^A-Z0-9]/g, '')
-      .slice(0, 3);
-    const prefixLabel = callsignPrefix || 'N/A';
-    byCallsignPrefixMap.set(prefixLabel, (byCallsignPrefixMap.get(prefixLabel) || 0) + 1);
+    if (duration >= 360) {
+      byDurationClassMap.set('Long Haul', (byDurationClassMap.get('Long Haul') || 0) + 1);
+    } else if (duration >= 120) {
+      byDurationClassMap.set('Medium Haul', (byDurationClassMap.get('Medium Haul') || 0) + 1);
+    } else {
+      byDurationClassMap.set('Short Haul', (byDurationClassMap.get('Short Haul') || 0) + 1);
+    }
   });
 
   const byRoute = [...byRouteMap.entries()]
@@ -123,13 +144,13 @@ export function buildAggregates(flights) {
     departures,
   }));
 
-  const byCallsignPrefix = [...byCallsignPrefixMap.entries()]
+  const byDurationClass = [...byDurationClassMap.entries()]
     .map(([name, value]) => ({ name, value }))
     .sort((a, b) => b.value - a.value);
 
   return {
     byRoute,
-    byCallsignPrefix,
+    byDurationClass,
     byHour,
     totals: {
       flights: flights.length,
@@ -160,16 +181,21 @@ export default function useFlightData() {
       const { datePart, beginUnix, endUnix } = getQueryWindow();
       setActiveWindow(`${datePart} (UTC)`);
       const requestDelayMs = getRequestDelayMs();
+      const timeChunks = buildTimeChunks(beginUnix, endUnix);
       const airports = getAirportIcaoList();
       const skippedAirports = [];
       const failedAirports = [];
       const rawFlights = [];
 
-      const fetchAirportRows = async (airport) => {
+      if (timeChunks.length === 0) {
+        throw new Error('Invalid time window generated for OpenSky request.');
+      }
+
+      const fetchChunkRows = async (airport, chunkBegin, chunkEnd) => {
         const query = new URLSearchParams({
           airport,
-          begin: String(beginUnix),
-          end: String(endUnix),
+          begin: String(chunkBegin),
+          end: String(chunkEnd),
         });
 
         const response = await fetch(`/api/opensky/departures?${query.toString()}`);
@@ -186,6 +212,22 @@ export default function useFlightData() {
         }
 
         return json;
+      };
+
+      const fetchAirportRows = async (airport) => {
+        const rows = [];
+
+        for (let i = 0; i < timeChunks.length; i += 1) {
+          const chunk = timeChunks[i];
+          const chunkRows = await fetchChunkRows(airport, chunk.begin, chunk.end);
+          rows.push(...chunkRows);
+
+          if (i < timeChunks.length - 1 && requestDelayMs > 0) {
+            await wait(requestDelayMs);
+          }
+        }
+
+        return rows;
       };
 
       for (let i = 0; i < airports.length; i += 1) {
@@ -292,9 +334,6 @@ export default function useFlightData() {
         const dateSuffix = datePart ? ` on ${datePart}` : '';
         setError(`OpenSky returned 0 departures for ${airports.join(', ')}${dateSuffix}.`);
       } else {
-        if (transformed.length > displayLimit) {
-          notices.push(`Loaded ${transformed.length} flights. Table is set to show first ${displayLimit}.`);
-        }
         setError(notices.join(' '));
       }
     } catch (err) {

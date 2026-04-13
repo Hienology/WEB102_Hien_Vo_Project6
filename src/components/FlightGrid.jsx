@@ -23,6 +23,7 @@ const COLUMNS = [
   { key: 'flightType', label: 'Type' },
   { key: 'route', label: 'Route' },
   { key: 'duration', label: 'Duration' },
+  { key: 'details', label: 'Details' },
 ];
 
 function formatDuration(mins) {
@@ -101,6 +102,16 @@ function FlightGrid({ data, totalCount = data.length }) {
 
                   <td className="px-4 py-3 font-mono text-amber-300">
                     {formatDuration(flight.times.flightDurationMins)}
+                  </td>
+
+                  <td className="px-4 py-3">
+                    <Link
+                      to={`/flight/${encodeURIComponent(flight.id)}`}
+                      className="inline-flex items-center rounded-md border border-sky-700 bg-sky-900/40 px-3 py-1.5 text-xs font-semibold text-sky-200 hover:bg-sky-800/60 hover:text-white transition-colors"
+                      aria-label={`View detailed information for ${flight.callsign}`}
+                    >
+                      Detailed
+                    </Link>
                   </td>
                 </tr>
               );
